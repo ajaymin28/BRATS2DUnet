@@ -218,7 +218,7 @@ if __name__=="__main__":
             
             for ds_idx, data in enumerate(train_ds):
                 TempData.append(data)
-                if SANITY_TEST and ds_idx>10:break
+                
                 # print(f"added : {ds_idx}")
                 if len(TempData)>local_batch_size or ds_idx==len(train_ds):
                     Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
@@ -255,6 +255,7 @@ if __name__=="__main__":
                         print(f"[{ds_idx_total}/{total_batch}] loss: {loss.item()}")
           
                     del Temp2dDataset, Temp2dDataset_Loader
+                    if SANITY_TEST and ds_idx>10:break
                     
             
             lr_scheduler.step()
@@ -274,7 +275,7 @@ if __name__=="__main__":
                     total_val_batch = 0
                     for val_ds_idx, val_ds_data in enumerate(val_ds):
                         TempData.append(val_ds_data)
-                        if SANITY_TEST and val_ds_idx>10:break
+                        
                         
                         if len(TempData)>local_batch_size or val_ds_idx==len(val_ds):
                             Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
@@ -303,7 +304,7 @@ if __name__=="__main__":
                                 
                                 print(f"[{val_idx_total}/{total_val_batch}] Validated")
         
-        
+                            if SANITY_TEST and val_ds_idx>10:break
                             del Temp2dDataset, Temp2dDataset_Loader
                             
                     metric = dice_metric.aggregate().item()
