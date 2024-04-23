@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset
 import numpy as np
 import gc
+from tqdm import tqdm
 
 class BRATS2DSlicedDataset(Dataset):
     def __init__(self, dataset_slices, channels_to_use=0, wholeTumor=True, transforms= None):
@@ -23,24 +24,22 @@ class BRATS2DSlicedDataset(Dataset):
 
     def remove_slices_without_annotations(self):
         refined_dataset = []
-        # for data in self.dataset_batch:
-        data = self.dataset
-
-        data['image'] = data['image'][self.channels_to_use,:,:,:] # 0 for using only flair channel 
-        label = data['label'][0]
-        if self.wholeTumor:  # cobine 
-            label[label > 0] = 1.0
-            data['label'] = label
-        slice_indexes = []
-        for lb_idx in range(label.shape[2]):
-            if np.any(label[:, :, lb_idx] > 0): # check if any labels are there or not.
-                slice_indexes.append(lb_idx)
-
-        # height, width, slices = label.shape
-        for idx, label_idx in enumerate(slice_indexes):
-            sliced_label = label[:,:,label_idx]
-            sliced_image = data['image'][:,:,label_idx]
-            refined_dataset.append((sliced_image, sliced_label))
+        for data in tqdm(self.dataset, total=len(self.dataset), desc="Processing 3D slices"):
+            # data = self.dataset
+            data['image'] = data['image'][self.channels_to_use,:,:,:] # 0 for using only flair channel 
+            label = data['label'][0]
+            if self.wholeTumor:  # cobine 
+                label[label > 0] = 1.0
+                data['label'] = label
+            slice_indexes = []
+            for lb_idx in range(label.shape[2]):
+                if np.any(label[:, :, lb_idx] > 0): # check if any segment labels are there or not.
+                    slice_indexes.append(lb_idx)
+            # height, width, slices = label.shape
+            for idx, label_idx in enumerate(slice_indexes):
+                sliced_label = label[:,:,label_idx]
+                sliced_image = data['image'][:,:,label_idx]
+                refined_dataset.append((sliced_image, sliced_label))
         self.dataset = refined_dataset
         del refined_dataset
         gc.collect()
