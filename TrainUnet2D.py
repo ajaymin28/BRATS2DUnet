@@ -55,19 +55,18 @@ if __name__=="__main__":
 
 
     parser = argparse.ArgumentParser('BRATS 2D Unet', add_help=False)
-    parser.add_argument('--folds', default=5, type=int, help='Number of folds')
-    parser.add_argument('--val_interval', default=2, type=int, help='validation frequency')
-    parser.add_argument('--batch_size', default=32, type=int, help='batch size')
-    parser.add_argument('--sanity_test', type=utils.bool_flag, default=True, help="""Do Sanity Test""")
+    parser.add_argument('--folds', default=3, type=int, help='Number of folds')
+    parser.add_argument('--val_interval', default=5, type=int, help='validation frequency')
+    parser.add_argument('--batch_size', default=64, type=int, help='batch size')
+    parser.add_argument('--sanity_test', type=utils.bool_flag, default=False, help="""Do Sanity Test""")
     parser.add_argument('--val_amp', type=utils.bool_flag, default=False, help="""Use cuda.amp""")
-    parser.add_argument('--create_temp_dir', type=utils.bool_flag, default=False, help="""Use cuda.amp""")
 
-    parser.add_argument('--epochs', default=50, type=int, help='Number of epochs of training.')
+    parser.add_argument('--epochs', default=20, type=int, help='Number of epochs of training.')
     parser.add_argument("--lr", default=1e-4, type=float, help="""Learning rate""")
 
-    parser.add_argument('--root_dir', default='../', type=str,
+    parser.add_argument('--root_dir', default='./', type=str,
         help='Please specify path to the ImageNet training data.')
-    parser.add_argument('--output_dir', default=".", type=str, help='Path to save logs and checkpoints.')
+    parser.add_argument('--output_dir', default="/lustre/fs1/home/jbhol/EEG/gits/BRATS2DUnet/output", type=str, help='Path to save logs and checkpoints.')
     # parser.add_argument('--saveckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=2, type=int, help='Number of data loading workers per GPU.')
@@ -82,11 +81,11 @@ if __name__=="__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     root_dir = FLAGS.root_dir
-    if FLAGS.create_temp_dir:
-        directory = os.environ.get("MONAI_DATA_DIRECTORY")
-        root_dir = tempfile.mkdtemp() if directory is None else directory
-        print(root_dir)
+    # directory = os.environ.get("MONAI_DATA_DIRECTORY")
+    # root_dir = tempfile.mkdtemp() if directory is None else directory
+    print(root_dir)
     set_determinism(seed=FLAGS.seed)
+
     os.makedirs(FLAGS.output_dir, exist_ok=True)
 
     train_transforms = Compose(
@@ -200,54 +199,68 @@ if __name__=="__main__":
         hd_metric_values_tc = [] # tumor core (TC)
         hd_metric_values_wt = [] # whole tumor
         hd_metric_values_et = [] # and enhanced tumor (ET) 
+        
+        
 
         for epoch in range(max_epochs):
+            epoch_start = time.time()
             model.train()
             epoch_loss = 0
             step = 0
             TotalData = 0
             TempData = []
             # print("Appending Slices")
-            local_batch_size = 4
+            local_batch_size = BATCH_SIZE
             TotalBatch = len(train_ds)//local_batch_size
+            
+            ds_idx_total = 0
+            total_batch = 0
+            
             for ds_idx, data in enumerate(train_ds):
                 TempData.append(data)
+                if SANITY_TEST and ds_idx>10:break
                 # print(f"added : {ds_idx}")
-                # if len(TempData)>local_batch_size or ds_idx==len(train_ds):
-
-                Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
-                TotalData += len(Temp2dDataset)
-                # print(f"Temp2dDataset : {len(Temp2dDataset)} Total {TotalData}")
-                TempData = []
-                Temp2dDataset_Loader = DataLoader(Temp2dDataset, batch_size=BATCH_SIZE, num_workers=NUMBER_OF_WORKERS, pin_memory=torch.cuda.is_available())
-                for b_idx, batch_data in enumerate(Temp2dDataset_Loader):
-                    step += 1
-                    inputs, labels = batch_data[0].to(device), batch_data[1].to(device)
-                    optimizer.zero_grad()
-                    outputs = model(inputs)
-                    loss = loss_function(outputs, labels)
-                    loss.backward()
-                    optimizer.step()
-                    epoch_loss += loss.item()
-                    # optimizer.zero_grad()
-                    # with torch.cuda.amp.autocast():
-                    #     outputs = model(inputs)
-                    #     loss = loss_function(outputs, labels)
-
-                    # scaler.scale(loss).backward()
-                    # scaler.step(optimizer)
-                    # scaler.update()
-                    # epoch_loss += loss.item()
-                    # print(f"Batch loss:  {loss.item()} ")
-
-                    if SANITY_TEST and ds_idx>10:break
-
-                del Temp2dDataset, Temp2dDataset_Loader
+                if len(TempData)>local_batch_size or ds_idx==len(train_ds):
+                    Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
+                    TotalData += len(Temp2dDataset)
+                    # print(f"Temp2dDataset : {len(Temp2dDataset)} Total {TotalData}")
+                    TempData = []
+                    Temp2dDataset_Loader = DataLoader(Temp2dDataset, batch_size=BATCH_SIZE, num_workers=NUMBER_OF_WORKERS, pin_memory=torch.cuda.is_available())
+                    
+                    total_batch += int(len(Temp2dDataset)/BATCH_SIZE)
+                    
+                    
+                    for b_idx, batch_data in enumerate(Temp2dDataset_Loader):
+                        ds_idx_total +=1
+                        step += 1
+                        inputs, labels = batch_data[0].to(device), batch_data[1].to(device)
+                        optimizer.zero_grad()
+                        outputs = model(inputs)
+                        loss = loss_function(outputs, labels)
+                        loss.backward()
+                        optimizer.step()
+                        epoch_loss += loss.item()
+                        # optimizer.zero_grad()
+                        # with torch.cuda.amp.autocast():
+                        #     outputs = model(inputs)
+                        #     loss = loss_function(outputs, labels)
+          
+                        # scaler.scale(loss).backward()
+                        # scaler.step(optimizer)
+                        # scaler.update()
+                        # epoch_loss += loss.item()
+                        # print(f"Batch loss:  {loss.item()} ")
+                        
+                        
+                        print(f"[{ds_idx_total}/{total_batch}] loss: {loss.item()}")
+          
+                    del Temp2dDataset, Temp2dDataset_Loader
+                    
             
             lr_scheduler.step()
             epoch_loss /= step
             epoch_loss_values.append(epoch_loss)
-            print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}")
+            
 
             if (epoch + 1) % val_interval == 0:
                 model.eval()
@@ -257,33 +270,41 @@ if __name__=="__main__":
                     val_outputs = None
                     TempData = []
                     TotalData = 0
+                    val_idx_total = 0
+                    total_val_batch = 0
                     for val_ds_idx, val_ds_data in enumerate(val_ds):
                         TempData.append(val_ds_data)
-                        # if len(TempData)>local_batch_size or val_ds_idx==len(val_ds):
-                        Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
-                        TotalData += len(Temp2dDataset)
-                        Temp2dDataset_Loader = DataLoader(Temp2dDataset, batch_size=BATCH_SIZE, num_workers=NUMBER_OF_WORKERS, pin_memory=torch.cuda.is_available())
-                        TempData  = []
-                        for val_idx, val_data in enumerate(Temp2dDataset_Loader):
-                            val_images, val_labels = val_data[0].to(device), val_data[1].to(device)
-                            roi_size = (96, 96)
-                            sw_batch_size = 4
-
-                            if VAL_AMP:
-                                with torch.cuda.amp.autocast():
-                                    val_outputs = sliding_window_inference(val_images, roi_size, sw_batch_size, model)
-                            else:
-                                val_outputs = sliding_window_inference(val_images, roi_size, sw_batch_size, model)
+                        if SANITY_TEST and val_ds_idx>10:break
+                        
+                        if len(TempData)>local_batch_size or val_ds_idx==len(val_ds):
+                            Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
+                            TotalData += len(Temp2dDataset)
+                            Temp2dDataset_Loader = DataLoader(Temp2dDataset, batch_size=BATCH_SIZE, num_workers=NUMBER_OF_WORKERS, pin_memory=torch.cuda.is_available())
+                            TempData  = []
                             
-                            val_outputs = [post_trans(i) for i in decollate_batch(val_outputs)]
-                            # compute metric for current iteration
-                            dice_metric(y_pred=val_outputs, y=val_labels)
-                            hd_metric(y_pred=val_outputs, y=val_labels)
-
-
-
-                            if SANITY_TEST and val_ds_idx>10:break
-                        del Temp2dDataset, Temp2dDataset_Loader
+                            total_val_batch += int(len(Temp2dDataset)/BATCH_SIZE)
+                            
+                            for val_idx, val_data in enumerate(Temp2dDataset_Loader):
+                                val_idx_total +=1
+                                val_images, val_labels = val_data[0].to(device), val_data[1].to(device)
+                                roi_size = (96, 96)
+                                sw_batch_size = 4
+        
+                                if VAL_AMP:
+                                    with torch.cuda.amp.autocast():
+                                        val_outputs = sliding_window_inference(val_images, roi_size, sw_batch_size, model)
+                                else:
+                                    val_outputs = sliding_window_inference(val_images, roi_size, sw_batch_size, model)
+                                
+                                val_outputs = [post_trans(i) for i in decollate_batch(val_outputs)]
+                                # compute metric for current iteration
+                                dice_metric(y_pred=val_outputs, y=val_labels)
+                                hd_metric(y_pred=val_outputs, y=val_labels)
+                                
+                                print(f"[{val_idx_total}/{total_val_batch}] Validated")
+        
+        
+                            del Temp2dDataset, Temp2dDataset_Loader
                             
                     metric = dice_metric.aggregate().item()
                     metric_values.append(metric)
@@ -326,6 +347,9 @@ if __name__=="__main__":
 
 
 
+            epoch_end = time.time()
+            print(f"epoch {epoch + 1} average loss: {epoch_loss:.4f}  time: {(epoch_end-epoch_start)/60} minutes")
+            
             if SANITY_TEST and epoch>5:
                 break
 
@@ -343,5 +367,5 @@ if __name__=="__main__":
         y = metric_values
         plt.xlabel("epoch")
         plt.plot(x, y, color="green")
-        plt.savefig(os.path.join(root_dir, f"fold_{fold}_best_metric_model_Epoch_Average_Loss.png"))
+        plt.savefig(os.path.join(f"{FLAGS.output_dir}/fold_{fold}_best_metric_model_Epoch_Average_Loss.png"))
         # plt.show()
