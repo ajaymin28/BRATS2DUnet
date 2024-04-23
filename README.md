@@ -13,8 +13,7 @@ pip install monai matplotlib scipy tqdm nibabel
 
 ### Data
 <!-- <img href="./images/MRIChannels.png"/> -->
-![plot](https://github.com/ajaymin28/BRATS2DUnet/images/MRIChannels.png)
-
+![plot](./images/MRIChannels.png)
 #### Sanity Train
 ```
 !python -m torch.distributed.launch --use_env --nproc_per_node=1 /kaggle/working/BRATS2DUnet/TrainUnet2D.py --sanity_test=True --root_dir="/kaggle/working/BRATS2DUnet" --output_dir="/kaggle/working/BRATS2DUnet/output" --batch_size=64 --epochs=10
