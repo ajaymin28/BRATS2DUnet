@@ -77,6 +77,9 @@ if __name__=="__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     root_dir = FLAGS.root_dir
+    directory = os.environ.get("MONAI_DATA_DIRECTORY")
+    root_dir = tempfile.mkdtemp() if directory is None else directory
+    print(root_dir)
     set_determinism(seed=FLAGS.seed)
 
     os.makedirs(FLAGS.output_dir, exist_ok=True)
