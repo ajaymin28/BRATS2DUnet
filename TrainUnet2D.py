@@ -60,6 +60,7 @@ if __name__=="__main__":
     parser.add_argument('--batch_size', default=32, type=int, help='batch size')
     parser.add_argument('--sanity_test', type=utils.bool_flag, default=True, help="""Do Sanity Test""")
     parser.add_argument('--val_amp', type=utils.bool_flag, default=False, help="""Use cuda.amp""")
+    parser.add_argument('--create_temp_dir', type=utils.bool_flag, default=False, help="""Use cuda.amp""")
 
     parser.add_argument('--epochs', default=50, type=int, help='Number of epochs of training.')
     parser.add_argument("--lr", default=1e-4, type=float, help="""Learning rate""")
@@ -81,11 +82,11 @@ if __name__=="__main__":
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     root_dir = FLAGS.root_dir
-    # directory = os.environ.get("MONAI_DATA_DIRECTORY")
-    # root_dir = tempfile.mkdtemp() if directory is None else directory
-    print(root_dir)
+    if FLAGS.create_temp_dir:
+        directory = os.environ.get("MONAI_DATA_DIRECTORY")
+        root_dir = tempfile.mkdtemp() if directory is None else directory
+        print(root_dir)
     set_determinism(seed=FLAGS.seed)
-
     os.makedirs(FLAGS.output_dir, exist_ok=True)
 
     train_transforms = Compose(
