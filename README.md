@@ -13,7 +13,7 @@ pip install monai matplotlib scipy tqdm nibabel
 
 ### Data
 <!-- <img href="./images/MRIChannels.png"/> -->
-![plot]("https://github.com/ajaymin28/BRATS2DUnet/images/MRIChannels.png")
+![plot](https://github.com/ajaymin28/BRATS2DUnet/images/MRIChannels.png)
 
 #### Sanity Train
 ```
