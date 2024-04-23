@@ -144,8 +144,8 @@ if __name__=="__main__":
         hd_metric = HausdorffDistanceMetric(include_background=True, reduction="mean")
         hd_metric_batch = HausdorffDistanceMetric(include_background=True, reduction="mean_batch")
 
-        train_ds = cvdataset.get_dataset(folds=current_folds_to_train, download=False)
-        val_ds = cvdataset.get_dataset(folds=fold, transform=val_transforms, download=False)
+        train_ds = cvdataset.get_dataset(folds=current_folds_to_train, download=True)
+        val_ds = cvdataset.get_dataset(folds=fold, transform=val_transforms, download=True)
         print("Train ds ",len(train_ds), " val ds ", len(val_ds))
 
         model = monai.networks.nets.UNet(
