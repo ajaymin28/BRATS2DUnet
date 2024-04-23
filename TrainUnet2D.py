@@ -213,8 +213,8 @@ if __name__=="__main__":
             local_batch_size = BATCH_SIZE
             TotalBatch = len(train_ds)//local_batch_size
             
-            ds_idx_total = 0
-            total_batch = 0
+            ds_idx_total = -1
+            total_batch = -1
             
             for ds_idx, data in enumerate(train_ds):
                 TempData.append(data)
