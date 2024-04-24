@@ -59,14 +59,17 @@ if __name__=="__main__":
     parser.add_argument('--val_interval', default=5, type=int, help='validation frequency')
     parser.add_argument('--batch_size', default=64, type=int, help='batch size')
     parser.add_argument('--sanity_test', type=utils.bool_flag, default=False, help="""Do Sanity Test""")
-    parser.add_argument('--val_amp', type=utils.bool_flag, default=False, help="""Use cuda.amp""")
+    parser.add_argument('--val_amp', type=utils.bool_flag, default=True, help="""Use cuda.amp""")
+    parser.add_argument('--channels_to_use', default=0, type=int, help="0,1,2,3")
+    
+    
 
     parser.add_argument('--epochs', default=20, type=int, help='Number of epochs of training.')
     parser.add_argument("--lr", default=1e-4, type=float, help="""Learning rate""")
 
-    parser.add_argument('--root_dir', default='./', type=str,
+    parser.add_argument('--root_dir', default='/lustre/fs1/home/jbhol/EEG/gits/BRATS2DUnet', type=str,
         help='Please specify path to the ImageNet training data.')
-    parser.add_argument('--output_dir', default="/lustre/fs1/home/jbhol/EEG/gits/BRATS2DUnet/output", type=str, help='Path to save logs and checkpoints.')
+    parser.add_argument('--output_dir', default="/lustre/fs1/home/jbhol/EEG/gits/BRATS2DUnet/T2Channel", type=str, help='Path to save logs and checkpoints.')
     # parser.add_argument('--saveckp_freq', default=20, type=int, help='Save checkpoint every x epochs.')
     parser.add_argument('--seed', default=0, type=int, help='Random seed.')
     parser.add_argument('--num_workers', default=2, type=int, help='Number of data loading workers per GPU.')
@@ -213,15 +216,15 @@ if __name__=="__main__":
             local_batch_size = BATCH_SIZE
             TotalBatch = len(train_ds)//local_batch_size
             
-            ds_idx_total = -1
-            total_batch = -1
+            ds_idx_total = 0
+            total_batch = 0
             
             for ds_idx, data in enumerate(train_ds):
                 TempData.append(data)
-                
+                if SANITY_TEST and ds_idx>10:break
                 # print(f"added : {ds_idx}")
                 if len(TempData)>local_batch_size or ds_idx==len(train_ds):
-                    Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
+                    Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=FLAGS.channels_to_use, wholeTumor=True)
                     TotalData += len(Temp2dDataset)
                     # print(f"Temp2dDataset : {len(Temp2dDataset)} Total {TotalData}")
                     TempData = []
@@ -255,7 +258,6 @@ if __name__=="__main__":
                         print(f"[{ds_idx_total}/{total_batch}] loss: {loss.item()}")
           
                     del Temp2dDataset, Temp2dDataset_Loader
-                    if SANITY_TEST and ds_idx>10:break
                     
             
             lr_scheduler.step()
@@ -275,10 +277,10 @@ if __name__=="__main__":
                     total_val_batch = 0
                     for val_ds_idx, val_ds_data in enumerate(val_ds):
                         TempData.append(val_ds_data)
-                        
+                        if SANITY_TEST and val_ds_idx>10:break
                         
                         if len(TempData)>local_batch_size or val_ds_idx==len(val_ds):
-                            Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=0, wholeTumor=True)
+                            Temp2dDataset = BRATS2DSlicedDataset(dataset_slices=TempData, channels_to_use=FLAGS.channels_to_use, wholeTumor=True)
                             TotalData += len(Temp2dDataset)
                             Temp2dDataset_Loader = DataLoader(Temp2dDataset, batch_size=BATCH_SIZE, num_workers=NUMBER_OF_WORKERS, pin_memory=torch.cuda.is_available())
                             TempData  = []
@@ -302,9 +304,9 @@ if __name__=="__main__":
                                 dice_metric(y_pred=val_outputs, y=val_labels)
                                 hd_metric(y_pred=val_outputs, y=val_labels)
                                 
-                                print(f"[{val_idx_total}/{total_val_batch}] Validated")
+                                #print(f"[{val_idx_total}/{total_val_batch}] Validated")
         
-                            if SANITY_TEST and val_ds_idx>10:break
+        
                             del Temp2dDataset, Temp2dDataset_Loader
                             
                     metric = dice_metric.aggregate().item()
